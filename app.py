@@ -373,63 +373,141 @@ with tab_list:
                         )
                     st.divider()
 
-# === Tab 2: ปฏิทินรายเดือน ===
+# === Tab 2: ปฏิทินรายเดือน (iOS Widget Style) ===
 with tab_calendar:
-    import calendar as py_cal
-    
-    # ดึงปีและเดือนปัจจุบันจากตัวเลือก Monthly Summary
+    today_dt = datetime.now().date()
     curr_year, curr_month = map(int, selected_month.split("-"))
-    month_name_th = ["", "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", 
-                     "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"][curr_month]
+    month_name_th = ["", "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", 
+                     "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."][curr_month]
     
-    st.markdown(f"### 🗓️ ปฏิทินงานประจำเดือน {month_name_th} {curr_year + 543}")
+    # ------------------------------------------------
+    # 1. การ์ด Progress สรุปภาพรวมประจำปี (Progress Card)
+    # ------------------------------------------------
+    start_of_year = date(today_dt.year, 1, 1)
+    end_of_year = date(today_dt.year, 12, 31)
+    days_in_year = (end_of_year - start_of_year).days + 1
+    days_passed = (today_dt - start_of_year).days + 1
+    days_left = days_in_year - days_passed
+    year_percent = int((days_passed / days_in_year) * 100)
+    year_buddhist = today_dt.year + 543
     
-    # กรองเฉพาะงานในเดือนและปีที่เลือก
+    # ดึงงานทั้งหมดของเดือนนี้
     month_tasks = df[df["YearMonth"] == selected_month].copy()
+    total_month_items = len(month_tasks)
+
+    # วาดการ์ด Progress สไตล์ Widget
+    st.markdown(f"""
+    <div style="background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+                border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 20px; padding: 18px 24px; 
+                box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05); margin-bottom: 16px; font-family: -apple-system, BlinkMacSystemFont, sans-serif;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;">
+            <span style="font-size: 22px; font-weight: 700; color: #1E293B;">{year_buddhist}</span>
+            <span style="font-size: 22px; font-weight: 700; color: #4338CA;">{year_percent}%</span>
+        </div>
+        <div style="background: #E2E8F0; border-radius: 999px; height: 7px; width: 100%; overflow: hidden; margin-bottom: 8px;">
+            <div style="background: linear-gradient(90deg, #6366F1 0%, #4F46E5 100%); width: {year_percent}%; height: 100%; border-radius: 999px;"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 12px; color: #64748B;">
+            <span>ผ่านไปแล้ว {year_percent}% ของปี</span>
+            <span>เหลืออีก {days_left} วัน</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ------------------------------------------------
+    # 2. การ์ดปฏิทิน Calendar Widget Grid
+    # ------------------------------------------------
+    cal_obj = py_cal.Calendar(firstweekday=0) # 0 = วันจันทร์
+    month_matrix = cal_obj.monthdatescalendar(curr_year, curr_month)
     
-    # สร้างโครงสร้างปฏิทินแบบ Responsive Table
-    days_in_month = py_cal.monthcalendar(curr_year, curr_month)
-    days_th = ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์", "อาทิตย์"]
+    first_date_grid = month_matrix[0][0]
+    last_date_grid = month_matrix[-1][-1]
     
-    # หัวตารางวันในสัปดาห์
-    cols = st.columns(7)
-    for idx, day_title in enumerate(days_th):
-        cols[idx].markdown(f"<div style='text-align:center; font-weight:bold; background:#F1F5F9; padding:6px; border-radius:6px; margin-bottom:8px;'>{day_title}</div>", unsafe_allow_html=True)
+    date_range_label = f"{first_date_grid.day} {month_name_th} - {last_date_grid.day} {month_name_th}"
     
-    # วาดช่องวันที่ในแต่ละสัปดาห์
-    for week in days_in_month:
-        week_cols = st.columns(7)
-        for d_idx, day_num in enumerate(week):
-            with week_cols[d_idx]:
-                if day_num == 0:
-                    st.write("")
-                else:
-                    this_date = date(curr_year, curr_month, day_num)
-                    is_today = (this_date == datetime.now().date())
-                    today_bg = "background:#EEF2FF; border:1.5px solid #6366F1;" if is_today else "background:#FFFFFF; border:1px solid #E2E8F0;"
-                    
-                    # หางานของวันนี้
-                    day_matching = month_tasks[month_tasks["Date"] == this_date]
-                    task_count = len(day_matching)
-                    
-                    # การแสดงผลกล่องวัน
-                    st.markdown(f"""
-                    <div style="{today_bg} border-radius:8px; padding:8px; min-height:85px; margin-bottom:8px;">
-                        <span style="font-size:14px; font-weight:{'bold' if is_today else 'normal'}; color:{'#4F46E5' if is_today else '#1E293B'};">
-                            {day_num} {'(วันนี้)' if is_today else ''}
-                        </span>
-                        <div style="margin-top:4px;">
-                            {'<span style="background:#E0F2FE; color:#0369A1; font-size:11px; padding:2px 6px; border-radius:12px; font-weight:500;">' + str(task_count) + ' งาน</span>' if task_count > 0 else ''}
-                        </div>
+    st.markdown(f"""
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 0 4px;">
+        <span style="font-size: 16px; font-weight: 700; color: #1E293B;">{date_range_label}</span>
+        <span style="background: #4F46E5; color: white; border-radius: 50%; width: 22px; height: 22px; 
+                     display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600;">{total_month_items}</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # กำหนดชุดสีตามหมวดหมู่งาน
+    category_colors = {
+        "ประชุม/ประสานงาน": {"bg": "rgba(224, 231, 255, 0.8)", "text": "#3730A3", "dot": "#6366F1"},
+        "งานเอกสาร/สารบรรณ": {"bg": "rgba(254, 226, 226, 0.8)", "text": "#991B1B", "dot": "#EF4444"},
+        "วิเคราะห์ข้อมูล/สถิติ": {"bg": "rgba(254, 243, 199, 0.8)", "text": "#92400E", "dot": "#F59E0B"},
+        "พัฒนาระบบ/ไอที": {"bg": "rgba(220, 252, 231, 0.8)", "text": "#166534", "dot": "#10B981"},
+        "อื่นๆ": {"bg": "rgba(241, 245, 249, 0.8)", "text": "#475569", "dot": "#94A3B8"}
+    }
+    
+    days_short = ["จ", "อ", "พ", "พฤ", "ศ", "ส", "อา"]
+    h_cols = st.columns(7)
+    for idx, d_name in enumerate(days_short):
+        h_cols[idx].markdown(f"<div style='text-align: center; font-size: 12px; color: #94A3B8; font-weight: 500;'>{d_name}</div>", unsafe_allow_html=True)
+        
+    st.markdown("<div style='height: 6px;'></div>", unsafe_allow_html=True)
+    
+    # วาดแต่ละสัปดาห์
+    for week_dates in month_matrix:
+        w_cols = st.columns(7)
+        for c_idx, cell_date in enumerate(week_dates):
+            with w_cols[c_idx]:
+                is_curr_month = (cell_date.month == curr_month)
+                is_today = (cell_date == today_dt)
+                
+                # ตัวเลขวันที่
+                day_num_str = str(cell_date.day)
+                text_color = "#1E293B" if is_curr_month else "#CBD5E1"
+                
+                # วันปัจจุบันจะใส่ไฮไลต์วงกลมสีน้ำเงิน
+                if is_today:
+                    day_badge = f"""
+                    <div style="background: #4F46E5; color: white; width: 24px; height: 24px; border-radius: 50%;
+                                display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; margin-bottom: 4px;">
+                        {day_num_str}
                     </div>
-                    """, unsafe_allow_html=True)
+                    """
+                else:
+                    day_badge = f"""
+                    <div style="font-size: 13px; font-weight: 500; color: {text_color}; margin-bottom: 4px; padding-left: 2px;">
+                        {day_num_str}
+                    </div>
+                    """
+                
+                # หางานของวันนี้
+                matched_tasks = df[df["Date"] == cell_date]
+                tasks_html = ""
+                
+                for _, t_row in matched_tasks.iterrows():
+                    c_info = category_colors.get(t_row.get("Category", "อื่นๆ"), category_colors["อื่นๆ"])
+                    task_title = t_row["Task_Name"]
+                    # ย่อชื่อไม่ให้ล้นกล่องปฏิทิน
+                    short_title = (task_title[:9] + "...") if len(task_title) > 9 else task_title
+                    tasks_html += f"""
+                    <div style="background: {c_info['bg']}; color: {c_info['text']}; font-size: 10px; padding: 2px 4px;
+                                border-radius: 4px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+                                display: flex; align-items: center; gap: 3px;">
+                        <span style="display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: {c_info['dot']}; flex-shrink: 0;"></span>
+                        <span>{short_title}</span>
+                    </div>
+                    """
                     
-                    # แสดงรายชื่องานแบบย่อในแต่ละวัน
-                    if task_count > 0:
-                        with st.popover(f"ดู {task_count} รายการ"):
-                            st.markdown(f"**งานวันที่ {day_num} {month_name_th}:**")
-                            for _, t_row in day_matching.iterrows():
-                                st.markdown(f"• **{t_row['Task_Name']}** ({t_row['Start_Time']}-{t_row['End_Time']})")
-                                if t_row['Details']:
-                                    st.caption(t_row['Details'])
-                                st.divider()
+                st.markdown(f"""
+                <div style="background: rgba(255, 255, 255, 0.7); min-height: 85px; border-radius: 10px; padding: 4px; border: 1px solid #F1F5F9; margin-bottom: 6px;">
+                    {day_badge}
+                    {tasks_html}
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # ถ้าวันนั้นมีงาน ให้มีปุ่มคลิกดูรายละเอียดฉบับเต็มได้
+                if len(matched_tasks) > 0:
+                    with st.popover(f"🔎 {len(matched_tasks)} งาน"):
+                        st.caption(f"📅 รายละเอียดวันที่ {cell_date.strftime('%d/%m/%Y')}")
+                        for _, m_row in matched_tasks.iterrows():
+                            st.markdown(f"• **{m_row['Task_Name']}** (`{m_row['Category']}`)")
+                            st.caption(f"เวลา: {m_row['Start_Time']} - {m_row['End_Time']}")
+                            if m_row["Details"]:
+                                st.write(m_row["Details"])
+                            st.divider()
