@@ -374,7 +374,6 @@ with tab_list:
                     st.divider()
 
 # === Tab 2: ปฏิทินรายเดือน ===
-
 with tab_calendar:
     import calendar as py_cal
     
@@ -395,4 +394,42 @@ with tab_calendar:
     # หัวตารางวันในสัปดาห์
     cols = st.columns(7)
     for idx, day_title in enumerate(days_th):
-        cols[idx].markdown(f"<div style='text-align:center; font-weight
+        cols[idx].markdown(f"<div style='text-align:center; font-weight:bold; background:#F1F5F9; padding:6px; border-radius:6px; margin-bottom:8px;'>{day_title}</div>", unsafe_allow_html=True)
+    
+    # วาดช่องวันที่ในแต่ละสัปดาห์
+    for week in days_in_month:
+        week_cols = st.columns(7)
+        for d_idx, day_num in enumerate(week):
+            with week_cols[d_idx]:
+                if day_num == 0:
+                    st.write("")
+                else:
+                    this_date = date(curr_year, curr_month, day_num)
+                    is_today = (this_date == datetime.now().date())
+                    today_bg = "background:#EEF2FF; border:1.5px solid #6366F1;" if is_today else "background:#FFFFFF; border:1px solid #E2E8F0;"
+                    
+                    # หางานของวันนี้
+                    day_matching = month_tasks[month_tasks["Date"] == this_date]
+                    task_count = len(day_matching)
+                    
+                    # การแสดงผลกล่องวัน
+                    st.markdown(f"""
+                    <div style="{today_bg} border-radius:8px; padding:8px; min-height:85px; margin-bottom:8px;">
+                        <span style="font-size:14px; font-weight:{'bold' if is_today else 'normal'}; color:{'#4F46E5' if is_today else '#1E293B'};">
+                            {day_num} {'(วันนี้)' if is_today else ''}
+                        </span>
+                        <div style="margin-top:4px;">
+                            {'<span style="background:#E0F2FE; color:#0369A1; font-size:11px; padding:2px 6px; border-radius:12px; font-weight:500;">' + str(task_count) + ' งาน</span>' if task_count > 0 else ''}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # แสดงรายชื่องานแบบย่อในแต่ละวัน
+                    if task_count > 0:
+                        with st.popover(f"ดู {task_count} รายการ"):
+                            st.markdown(f"**งานวันที่ {day_num} {month_name_th}:**")
+                            for _, t_row in day_matching.iterrows():
+                                st.markdown(f"• **{t_row['Task_Name']}** ({t_row['Start_Time']}-{t_row['End_Time']})")
+                                if t_row['Details']:
+                                    st.caption(t_row['Details'])
+                                st.divider()
