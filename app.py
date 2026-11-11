@@ -374,33 +374,25 @@ with tab_list:
                     st.divider()
 
 # === Tab 2: ปฏิทินรายเดือน ===
+
 with tab_calendar:
-    calendar_events = []
-    for _, row in df.iterrows():
-        try:
-            start_iso = f"{row['Date']}T{row['Start_Time']}:00"
-            end_iso = f"{row['Date']}T{row['End_Time']}:00"
-            
-            calendar_events.append({
-                "title": f"[{row['Category']}] {row['Task_Name']}",
-                "start": start_iso,
-                "end": end_iso,
-                "extendedProps": {
-                    "details": row["Details"]
-                }
-            })
-        except Exception:
-            continue
-
-    calendar_options = {
-        "headerToolbar": {
-            "left": "prev,next today",
-            "center": "title",
-            "right": "dayGridMonth,timeGridWeek,listMonth"
-        },
-        "initialView": "dayGridMonth",
-        "selectable": True,
-        "editable": False
-    }
-
-    calendar(events=calendar_events, options=calendar_options, key="monthly_work_calendar")
+    import calendar as py_cal
+    
+    # ดึงปีและเดือนปัจจุบันจากตัวเลือก Monthly Summary
+    curr_year, curr_month = map(int, selected_month.split("-"))
+    month_name_th = ["", "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", 
+                     "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"][curr_month]
+    
+    st.markdown(f"### 🗓️ ปฏิทินงานประจำเดือน {month_name_th} {curr_year + 543}")
+    
+    # กรองเฉพาะงานในเดือนและปีที่เลือก
+    month_tasks = df[df["YearMonth"] == selected_month].copy()
+    
+    # สร้างโครงสร้างปฏิทินแบบ Responsive Table
+    days_in_month = py_cal.monthcalendar(curr_year, curr_month)
+    days_th = ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์", "อาทิตย์"]
+    
+    # หัวตารางวันในสัปดาห์
+    cols = st.columns(7)
+    for idx, day_title in enumerate(days_th):
+        cols[idx].markdown(f"<div style='text-align:center; font-weight
