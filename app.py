@@ -132,25 +132,26 @@ def convert_image_to_base64(uploaded_file):
     return ""
 
 # ----------------------------------------------------
-# 4. ส่วน Sidebar: ฟอร์มบันทึกงานใหม่
+# 4. ส่วน Sidebar: ฟอร์มบันทึกงานใหม่ (แบบ Agoda Style)
 # ----------------------------------------------------
 st.sidebar.title("✍️ บันทึกงานใหม่")
 
 with st.sidebar.form("task_form", clear_on_submit=False):
-    task_name = st.text_input("ชื่องาน / กิจกรรม *", placeholder="เช่น ประชุมชี้แจงแนวทางการปฏิบัติงาน")
+    task_name = st.text_input("ชื่องาน / กิจกรรม *", placeholder="เช่น ประชุมวิชาการ...")
+    
     category = st.selectbox(
         "หมวดหมู่", 
         ["ประชุม/ประสานงาน", "งานเอกสาร/สารบรรณ", "วิเคราะห์ข้อมูล/สถิติ", "พัฒนาระบบ/ไอที", "อื่นๆ"]
     )
     
-    st.markdown("**🗓️ รูปแบบวันที่**")
-    date_mode = st.radio("ประเภทการจัดงาน", ["วันเดียว", "หลายวันติดต่อกัน (ช่วงวันที่)"], horizontal=True)
-    
-    if date_mode == "วันเดียว":
-        single_date = st.date_input("วันที่ปฏิบัติงาน", datetime.now().date())
-        date_range = [single_date, single_date]
-    else:
-        date_range = st.date_input("เลือกช่วงวันที่เริ่มต้น - สิ้นสุด", [datetime.now().date(), datetime.now().date() + timedelta(days=1)])
+    # กล่องเลือกวันที่แบบ Agoda: ให้ค่าเริ่มต้นเป็นช่วงวัน (วันนี้ ถึง วันนี้)
+    # หากต้องการวันเดียว: คลิกวันเดิมซ้ำ
+    # หากต้องการหลายวัน: คลิกวันเริ่ม แล้วคลิกวันสิ้นสุด
+    selected_dates = st.date_input(
+        "เลือกวันที่ปฏิบัติงาน (คลิกเลือกวันเริ่ม - วันสิ้นสุด)",
+        value=(datetime.now().date(), datetime.now().date()),
+        help="ถ้าเป็นงานวันเดียว ให้กดเลือกวันที่เดียวกันซ้ำ 2 ครั้ง หรือเลือกช่วงวันสำหรับงานหลายวันติดต่อกัน"
+    )
     
     col_t1, col_t2 = st.columns(2)
     with col_t1:
@@ -168,24 +169,32 @@ with st.sidebar.form("task_form", clear_on_submit=False):
 
 # ตรวจสอบการส่งข้อมูล
 if submit_btn:
+    # ตรวจสอบว่าผู้ใช้เลือกวันที่ครบช่วงหรือไม่
+    is_valid_date = False
+    start_d = None
+    end_d = None
+    
+    if isinstance(selected_dates, (list, tuple)):
+        if len(selected_dates) == 2:
+            start_d, end_d = selected_dates
+            is_valid_date = True
+        elif len(selected_dates) == 1:
+            start_d = end_d = selected_dates[0]
+            is_valid_date = True
+    elif isinstance(selected_dates, date):
+        start_d = end_d = selected_dates
+        is_valid_date = True
+
     if not task_name:
         st.sidebar.error("กรุณาระบุชื่องาน")
-    elif isinstance(date_range, (list, tuple)) and len(date_range) == 2 and date_range[0] > date_range[1]:
-        st.sidebar.error("วันที่เริ่มต้นต้องไม่มากกว่าวันที่สิ้นสุด")
+    elif not is_valid_date:
+        st.sidebar.error("กรุณาคลิกเลือกวันที่ให้ครบถ้วน (วันเริ่มและวันสิ้นสุด)")
     elif start_time >= end_time:
         st.sidebar.error("เวลาเริ่มต้นต้องเกิดขึ้นก่อนเวลาสิ้นสุด")
     else:
-        # จัดการช่วงวันที่
-        if isinstance(date_range, (list, tuple)):
-            start_d = date_range[0]
-            end_d = date_range[1] if len(date_range) > 1 else date_range[0]
-        else:
-            start_d = date_range
-            end_d = date_range
-
         days_count = (end_d - start_d).days + 1
         
-        # จัดการไฟล์แนบ (ถ้ามีรูป ให้อ่านรูปเป็น Base64)
+        # แปลงรูปภาพ Base64
         final_attachment = attachment_url
         if uploaded_file is not None:
             image_data = convert_image_to_base64(uploaded_file)
@@ -196,7 +205,6 @@ if submit_btn:
         
         for i in range(days_count):
             curr_date = start_d + timedelta(days=i)
-            # เติมคำระบุวันหากเป็นงานหลายวัน
             day_suffix = f" (วันที่ {i+1}/{days_count})" if days_count > 1 else ""
             
             tasks_to_create.append({
@@ -219,10 +227,10 @@ if submit_btn:
                 "end_time": end_time,
                 "details": details
             }
-            st.sidebar.success(f"✅ บันทึกสำเร็จทั้งหมด {days_count} รายการ!")
+            st.sidebar.success(f"✅ บันทึกสำเร็จทั้งหมด {days_count} วัน!")
 
 # ----------------------------------------------------
-# 5. แสดงผลปุ่มซิงก์ปฏิทินที่ Sidebar หากเพิ่งบันทึกงาน
+# 5. แสดงผลปุ่มซิงก์ปฏิทินที่ Sidebar หลังบันทึก
 # ----------------------------------------------------
 if "last_saved_tasks" in st.session_state:
     st.sidebar.markdown("---")
@@ -300,7 +308,6 @@ col_m3.metric("รายการที่ผ่านการกรอง", f"
 with col_m4:
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        # ตัดข้อมูลรูปภาพ Base64 ออกจากคอลัมน์ Excel เพื่อไม่ให้ไฟล์หนักเกินไป
         export_df = filtered_df.drop(columns=["YearMonth"], errors="ignore").copy()
         export_df["Attachment_URL"] = export_df["Attachment_URL"].apply(lambda x: "[รูปภาพแนบในระบบ]" if str(x).startswith("data:image") else x)
         export_df.to_excel(writer, index=False, sheet_name="Work_Logs")
@@ -343,7 +350,6 @@ with tab_list:
                         if row["Details"]:
                             st.write(row["Details"])
                         
-                        # ตรวจสอบว่าไฟล์แนบเป็นรูปภาพ Base64 หรือเป็น URL ทั่วไป
                         attach = str(row["Attachment_URL"])
                         if attach.startswith("data:image"):
                             st.image(attach, caption="รูปภาพแนบ", width=250)
@@ -351,7 +357,6 @@ with tab_list:
                             st.markdown(f"📎 [เปิดไฟล์แนบ/เอกสาร]({attach})")
                             
                     with c3:
-                        # ปุ่มปฏิทินของแต่ละรายการ
                         s_time = datetime.strptime(str(row['Start_Time']), "%H:%M").time()
                         e_time = datetime.strptime(str(row['End_Time']), "%H:%M").time()
                         
